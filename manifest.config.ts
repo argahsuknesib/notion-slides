@@ -5,17 +5,8 @@ export default defineManifest({
   name: 'Notion Slides',
   description: 'Transform your Notion pages into beautiful presentation slides with automatic slide separation and navigation.',
   version: '1.0.0',
-  icons: {
-    16: 'icons/icon16.png',
-    48: 'icons/icon48.png',
-    128: 'icons/icon128.png'
-  },
   action: {
-    default_title: 'Start Notion Presentation',
-    default_icon: {
-      16: 'icons/icon16.png',
-      48: 'icons/icon48.png'
-    }
+    default_title: 'Start Notion Presentation'
   },
   background: {
     service_worker: 'src/background.ts',
