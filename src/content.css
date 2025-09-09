@@ -1,0 +1,285 @@
+#np-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  background: #ffffff;
+  color: #37352f;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+}
+
+#np-overlay.np-active {
+  display: flex;
+}
+
+#np-overlay .np-stage {
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 56px 72px;
+  overflow: auto;
+  position: relative;
+}
+
+/* Navigation panel */
+#np-overlay .np-nav-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 280px;
+  height: 100vh;
+  background: rgba(255, 255, 255, 0.95);
+  border-left: 1px solid #e1e1e0;
+  padding: 20px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  z-index: 10;
+  backdrop-filter: blur(10px);
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+}
+
+#np-overlay .np-nav-panel.np-nav-visible {
+  transform: translateX(0);
+}
+
+#np-overlay .np-nav-header {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #6f6f6f;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e1e1e0;
+}
+
+#np-overlay .np-nav-item {
+  padding: 8px 12px;
+  margin: 2px 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  color: #37352f;
+  transition: background-color 0.2s ease;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  display: block;
+}
+
+#np-overlay .np-nav-item:hover {
+  background-color: rgba(55, 53, 47, 0.08);
+}
+
+#np-overlay .np-nav-item.np-nav-current {
+  background-color: #2383e2;
+  color: white;
+}
+
+#np-overlay .np-nav-item.np-nav-title {
+  font-weight: 600;
+  color: #2c2c2c;
+}
+
+/* Toggle button */
+/* Toggle button */
+#np-overlay .np-nav-toggle {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e1e1e0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 11;
+  transition: background-color 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+#np-overlay .np-nav-toggle:hover {
+  background: rgba(255, 255, 255, 1);
+}
+
+#np-overlay .np-nav-toggle::before {
+  content: "📋";
+  font-size: 16px;
+}
+
+/* Icon styles for navigation items */
+#np-overlay .np-nav-item {
+  padding: 8px 12px;
+  margin: 2px 0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1.3;
+  color: #37352f;
+  transition: background-color 0.2s ease;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#np-overlay .np-nav-item::before {
+  content: "📄";
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+#np-overlay .np-nav-item.np-nav-title::before {
+  content: "🎯";
+  font-size: 14px;
+}
+
+/* Specific icons for different heading levels */
+#np-overlay .np-nav-item[data-heading="h1"]::before {
+  content: "📌";
+}
+
+#np-overlay .np-nav-item[data-heading="h2"]::before {
+  content: "📍";
+}
+
+#np-overlay .np-nav-item[data-heading="h3"]::before {
+  content: "🔸";
+}
+
+#np-overlay .np-nav-item[data-content="list"]::before {
+  content: "📝";
+}
+
+#np-overlay .np-nav-item[data-content="code"]::before {
+  content: "💻";
+}
+
+#np-overlay .np-nav-item[data-content="quote"]::before {
+  content: "💬";
+}
+
+#np-overlay .np-nav-item[data-content="image"]::before {
+  content: "🖼️";
+}
+
+#np-overlay .np-slide {
+  max-width: 1200px;
+  margin: 0 auto;
+  font-size: 1.2rem;
+  line-height: 1.5;
+}
+
+#np-overlay h1 {
+  font-size: 1.8rem;
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0 0 16px 0;
+  color: #2c2c2c;
+}
+#np-overlay h2 {
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1.25;
+  margin: 14px 0 10px 0;
+  color: #2c2c2c;
+}
+#np-overlay h3 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 12px 0 8px 0;
+  color: #2c2c2c;
+}
+
+#np-overlay .np-footer {
+  position: fixed;
+  right: 20px;
+  bottom: 16px;
+  font-size: 0.85rem;
+  opacity: 0.6;
+  color: #9b9a97;
+}
+
+/* Additional Notion-like styling */
+#np-overlay p {
+  margin: 0 0 8px 0;
+  color: #37352f;
+}
+
+/* Title slide styling */
+#np-overlay .np-title-slide {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+#np-overlay .np-title-content {
+  max-width: 800px;
+  padding: 40px;
+}
+
+#np-overlay .np-title-icon {
+  font-size: 4rem;
+  text-align: center;
+  margin-bottom: 24px;
+  opacity: 0.8;
+}
+
+#np-overlay .np-title-main {
+  font-size: 3.5rem;
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 0 0 24px 0;
+  color: #2c2c2c;
+  letter-spacing: -0.02em;
+}
+
+#np-overlay .np-title-subtitle {
+  font-size: 1.4rem;
+  color: #6f6f6f;
+  margin: 0;
+  font-weight: 400;
+}
+
+#np-overlay ul, #np-overlay ol {
+  margin: 8px 0;
+  padding-left: 1.5rem;
+}
+
+#np-overlay li {
+  margin: 4px 0;
+}
+
+#np-overlay code {
+  background-color: rgba(135, 131, 120, 0.15);
+  color: #eb5757;
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+  font-size: 0.9em;
+}
+
+#np-overlay blockquote {
+  border-left: 3px solid #e1e1e0;
+  padding-left: 16px;
+  margin: 12px 0;
+  color: #6f6f6f;
+}
+
+html.np-block-scroll,
+body.np-block-scroll {
+  overflow: hidden !important;
+}

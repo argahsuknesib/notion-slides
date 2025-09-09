@@ -1,0 +1,349 @@
+(() => {
+  const OVERLAY_ID = 'np-overlay';
+  const STAGE_CLASS = 'np-stage';
+  const SLIDE_CLASS = 'np-slide';
+  const ACTIVE_CLASS = 'np-active';
+
+  let isActive = false;
+  let slides: HTMLElement[][] = [];
+  let idx = 0;
+  let observer: MutationObserver | null = null;
+  let keyHandlerBound: ((e: KeyboardEvent) => void) | null = null;
+
+  chrome.runtime.onMessage.addListener((msg) => {
+    if ((msg as any)?.type === 'TOGGLE_PRESENTATION') {
+      togglePresentation();
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.altKey && e.shiftKey && e.code === 'KeyP') {
+      e.preventDefault();
+      togglePresentation();
+    }
+  });
+
+  function togglePresentation() {
+    if (isActive) {
+      exitPresentation();
+      return;
+    }
+    const root = resolvePageRoot();
+    if (!root) {
+      console.warn('[Notion PM] Could not find page root.');
+      return;
+    }
+    slides = buildSlides(root);
+    if (slides.length === 0) {
+      const all = collectTopLevelBlocks(root);
+      if (all.length === 0) {
+        console.warn('[Notion PM] No content blocks detected.');
+        return;
+      }
+      slides = [all];
+    }
+    idx = getSlideIndexFromHash() ?? 0;
+    ensureOverlay();
+    renderSlide(idx);
+    attachKeyHandlers();
+    blockScroll(true);
+    startObserving(root);
+    isActive = true;
+  }
+
+  function exitPresentation() {
+    const overlay = document.getElementById(OVERLAY_ID);
+    if (overlay) {
+      overlay.classList.remove(ACTIVE_CLASS);
+      (overlay as HTMLElement).style.display = 'none';
+      overlay.innerHTML = '';
+    }
+    detachKeyHandlers();
+    blockScroll(false);
+    stopObserving();
+    isActive = false;
+  }
+
+  function resolvePageRoot(): HTMLElement | null {
+    // [Inference] Notion typically renders page content in role="main".
+    const selectors = ["[role='main']", 'main', "[aria-label='Page content']"];
+    const candidates = Array.from(
+      document.querySelectorAll<HTMLElement>(selectors.join(','))
+    );
+    if (candidates.length > 0) {
+      const scored = candidates
+        .map((el) => ({
+          el,
+          score: el.querySelectorAll<HTMLElement>('[data-block-id]').length
+        }))
+        .sort((a, b) => b.score - a.score);
+      return scored[0]?.el || null;
+    }
+    return document.body;
+  }
+
+  function collectTopLevelBlocks(root: HTMLElement): HTMLElement[] {
+    const all = Array.from(
+      root.querySelectorAll<HTMLElement>('[data-block-id]')
+    );
+    if (all.length === 0) return [];
+    const inRoot = new Set(all);
+    const top = all.filter((el) => {
+      const parentBlock = el.parentElement?.closest('[data-block-id]');
+      return !parentBlock || !inRoot.has(parentBlock as HTMLElement);
+    });
+    return top.filter((el) => isVisible(el));
+  }
+
+  function isVisible(el: HTMLElement): boolean {
+    const rect = el.getBoundingClientRect();
+    const styles = window.getComputedStyle(el);
+    return (
+      rect.width >= 1 &&
+      rect.height >= 1 &&
+      styles.display !== 'none' &&
+      styles.visibility !== 'hidden'
+    );
+  }
+
+  function isSeparatorBlock(blockEl: HTMLElement): boolean {
+    if (blockEl.querySelector('hr,[role="separator"]')) return true;
+    const txt = (blockEl.innerText || '').trim();
+    if (/^-{3,}$/.test(txt)) return true; // --- or ----
+    return false;
+  }
+
+  function buildSlides(root: HTMLElement): HTMLElement[][] {
+    const blocks = collectTopLevelBlocks(root);
+    const result: HTMLElement[][] = [];
+    let current: HTMLElement[] = [];
+    for (const block of blocks) {
+      if (isSeparatorBlock(block)) {
+        if (current.length > 0) result.push(current);
+        current = [];
+      } else {
+        current.push(block);
+      }
+    }
+    if (current.length > 0) result.push(current);
+    return result.filter((arr) => arr.length > 0);
+  }
+
+  function ensureOverlay() {
+    let overlay = document.getElementById(OVERLAY_ID) as
+      | HTMLElement
+      | null;
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = OVERLAY_ID;
+      document.body.appendChild(overlay);
+    }
+    overlay.innerHTML = '';
+
+    const stage = document.createElement('div');
+    stage.className = STAGE_CLASS;
+
+    const slide = document.createElement('div');
+    slide.className = SLIDE_CLASS;
+    slide.setAttribute('role', 'document');
+
+    const footer = document.createElement('div');
+    footer.className = 'np-footer';
+    footer.id = 'np-footer';
+
+    stage.appendChild(slide);
+    overlay.appendChild(stage);
+    overlay.appendChild(footer);
+
+    overlay.classList.add(ACTIVE_CLASS);
+    overlay.style.display = 'flex';
+  }
+
+  function sanitizeClone(root: HTMLElement): HTMLElement {
+    const walker = document.createTreeWalker(
+      root,
+      NodeFilter.SHOW_ELEMENT,
+      null
+    );
+    const toProcess: Node[] = [];
+    while (walker.nextNode()) toProcess.push(walker.currentNode);
+    for (const n of toProcess) {
+      const el = n as HTMLElement;
+      el.removeAttribute('contenteditable');
+      el.removeAttribute('draggable');
+      el.removeAttribute('spellcheck');
+      el.tabIndex = -1;
+      if (el.getAttribute('role') === 'menu') {
+        el.remove();
+      }
+    }
+    return root;
+  }
+
+  function renderSlide(i: number) {
+    if (!slides.length) return;
+    i = Math.max(0, Math.min(i, slides.length - 1));
+    idx = i;
+    const overlay = document.getElementById(OVERLAY_ID) as
+      | HTMLElement
+      | null;
+    if (!overlay) return;
+    const stage = overlay.querySelector(`.${STAGE_CLASS}`) as
+      | HTMLElement
+      | null;
+    const slide = overlay.querySelector(`.${SLIDE_CLASS}`) as
+      | HTMLElement
+      | null;
+    const footer = overlay.querySelector('#np-footer') as
+      | HTMLElement
+      | null;
+    if (!stage || !slide || !footer) return;
+
+    slide.innerHTML = '';
+    for (const block of slides[i]) {
+      const clone = block.cloneNode(true) as HTMLElement;
+      sanitizeClone(clone);
+      slide.appendChild(clone);
+    }
+    footer.textContent = `Slide ${i + 1} / ${slides.length}`;
+    updateHash(i);
+  }
+
+  function next() {
+    if (idx < slides.length - 1) {
+      renderSlide(idx + 1);
+    }
+  }
+
+  function prev() {
+    if (idx > 0) {
+      renderSlide(idx - 1);
+    }
+  }
+
+  function onKey(e: KeyboardEvent) {
+    const overlay = document.getElementById(OVERLAY_ID) as
+      | HTMLElement
+      | null;
+    if (!overlay || overlay.style.display === 'none') return;
+
+    const code = e.code;
+    if (code === 'ArrowDown') {
+      e.preventDefault();
+      e.stopPropagation();
+      next();
+      return;
+    }
+    if (code === 'ArrowUp') {
+      e.preventDefault();
+      e.stopPropagation();
+      prev();
+      return;
+    }
+    if (code === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      exitPresentation();
+      return;
+    }
+    if (code === 'PageDown') {
+      e.preventDefault();
+      next();
+      return;
+    }
+    if (code === 'PageUp') {
+      e.preventDefault();
+      prev();
+      return;
+    }
+    if (!e.ctrlKey && !e.metaKey && !e.altKey && code === 'KeyR') {
+      e.preventDefault();
+      rescanAndRender();
+    }
+  }
+
+  function attachKeyHandlers() {
+    keyHandlerBound = onKey;
+    window.addEventListener('keydown', keyHandlerBound, true);
+  }
+
+  function detachKeyHandlers() {
+    if (keyHandlerBound) {
+      window.removeEventListener('keydown', keyHandlerBound, true);
+      keyHandlerBound = null;
+    }
+  }
+
+  function blockScroll(enable: boolean) {
+    const html = document.documentElement;
+    const body = document.body;
+    if (enable) {
+      html.classList.add('np-block-scroll');
+      body.classList.add('np-block-scroll');
+    } else {
+      html.classList.remove('np-block-scroll');
+      body.classList.remove('np-block-scroll');
+    }
+  }
+
+  function updateHash(i: number) {
+    try {
+      const url = new URL(window.location.href);
+      url.hash = `slide-${i + 1}`;
+      history.replaceState(history.state, '', url.toString());
+    } catch {
+      // ignore
+    }
+  }
+
+  function getSlideIndexFromHash(): number | null {
+    const m = window.location.hash.match(/slide-(\d+)/i);
+    if (!m) return null;
+    const n = Math.max(1, parseInt(m[1], 10));
+    return n - 1;
+  }
+
+  function debounced<T extends (...args: any[]) => void>(
+    fn: T,
+    ms: number
+  ) {
+    let t: number | null = null;
+    return (...args: Parameters<T>) => {
+      if (t) window.clearTimeout(t);
+      t = window.setTimeout(() => fn(...args), ms);
+    };
+  }
+
+  function startObserving(root: HTMLElement) {
+    stopObserving();
+    observer = new MutationObserver(
+      debounced(() => {
+        if (!isActive) return;
+        rescanAndRender();
+      }, 300)
+    );
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    });
+  }
+
+  function stopObserving() {
+    if (observer) {
+      observer.disconnect();
+      observer = null;
+    }
+  }
+
+  function rescanAndRender() {
+    const root = resolvePageRoot();
+    if (!root) return;
+    slides = buildSlides(root);
+    if (slides.length === 0) {
+      slides = [collectTopLevelBlocks(root)];
+    }
+    idx = Math.min(idx, slides.length - 1);
+    renderSlide(idx);
+  }
+})();
