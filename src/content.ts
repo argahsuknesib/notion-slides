@@ -18,6 +18,10 @@ if (!window.location.href.includes('notion.so') && !window.location.href.include
   let idx = 0;
   let observer: MutationObserver | null = null;
   let keyHandlerBound: ((e: KeyboardEvent) => void) | null = null;
+  let presentationStartTime: number = 0;
+  let currentTheme: string = 'default';
+  let timerInterval: NodeJS.Timeout | null = null;
+  let presenterNotesVisible: boolean = false;
 
   chrome.runtime.onMessage.addListener((msg: { type: string }, sender?: any, sendResponse?: any) => {
     console.log('Content: Received message:', msg);
@@ -69,8 +73,12 @@ if (!window.location.href.includes('notion.so') && !window.location.href.include
       }
     }
     idx = getSlideIndexFromHash() ?? 0;
+    presentationStartTime = Date.now();
     ensureOverlay();
     updateNavigationPanel(); // Initialize navigation panel
+    createPresentationTimer();
+    createSlideIndicators();
+    createControlsPanel();
     renderSlide(idx);
     attachKeyHandlers();
     blockScroll(true);
@@ -128,6 +136,7 @@ if (!window.location.href.includes('notion.so') && !window.location.href.include
     detachKeyHandlers();
     blockScroll(false);
     stopObserving();
+    stopTimer();
     isActive = false;
   }
 
@@ -264,6 +273,23 @@ if (!window.location.href.includes('notion.so') && !window.location.href.include
     overlay.appendChild(stage);
     overlay.appendChild(footer);
 
+    // Add click-to-advance functionality
+    stage.addEventListener('click', (e) => {
+      // Only advance if clicking on the stage itself, not on interactive elements
+      if (e.target === stage || e.target === slide) {
+        const rect = stage.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const stageWidth = rect.width;
+        
+        // Click on right half advances, left half goes back
+        if (clickX > stageWidth * 0.6) {
+          next();
+        } else if (clickX < stageWidth * 0.4) {
+          prev();
+        }
+      }
+    });
+
     // Create navigation panel
     const navPanel = createNavigationPanel();
     overlay.appendChild(navPanel);
@@ -273,6 +299,21 @@ if (!window.location.href.includes('notion.so') && !window.location.href.include
     navToggle.className = 'np-nav-toggle';
     navToggle.addEventListener('click', toggleNavigation);
     overlay.appendChild(navToggle);
+
+    // Create progress bar
+    const progressContainer = document.createElement('div');
+    progressContainer.className = 'np-progress';
+    const progressBar = document.createElement('div');
+    progressBar.className = 'np-progress-bar';
+    progressBar.id = 'np-progress-bar';
+    progressContainer.appendChild(progressBar);
+    overlay.appendChild(progressContainer);
+
+    // Create slide counter
+    const slideCounter = document.createElement('div');
+    slideCounter.className = 'np-slide-counter';
+    slideCounter.id = 'np-slide-counter';
+    overlay.appendChild(slideCounter);
 
     overlay.classList.add(ACTIVE_CLASS);
     overlay.style.display = 'flex';
@@ -442,6 +483,10 @@ if (!window.location.href.includes('notion.so') && !window.location.href.include
       | null;
     if (!stage || !slide || !footer) return;
 
+    // Apply slide layout based on content
+    const layout = detectSlideLayout(slides[i]);
+    slide.className = `${SLIDE_CLASS} np-layout-${layout}`;
+
     slide.innerHTML = '';
     for (const block of slides[i]) {
       const clone = block.cloneNode(true) as HTMLElement;
@@ -449,8 +494,55 @@ if (!window.location.href.includes('notion.so') && !window.location.href.include
       slide.appendChild(clone);
     }
     footer.innerHTML = `📄 Slide ${i + 1} / ${slides.length}`;
+    
+    // Update progress bar
+    const progressBar = document.getElementById('np-progress-bar') as HTMLElement;
+    if (progressBar) {
+      const progress = ((i + 1) / slides.length) * 100;
+      progressBar.style.width = `${progress}%`;
+    }
+    
+    // Update slide counter
+    const slideCounter = document.getElementById('np-slide-counter') as HTMLElement;
+    if (slideCounter) {
+      slideCounter.textContent = `${i + 1} / ${slides.length}`;
+    }
+    
+    // Update slide indicators
+    updateSlideIndicators();
+    
+    // Update presenter notes if visible
+    if (presenterNotesVisible) {
+      updatePresenterNotes();
+    }
+    
     updateHash(i);
     updateNavigationPanel(); // Update navigation panel when slide changes
+  }
+
+  function detectSlideLayout(slide: HTMLElement[]): string {
+    for (const block of slide) {
+      const images = block.querySelectorAll('img');
+      const text = block.textContent?.trim() || '';
+      
+      // Image-focused layout
+      if (images.length > 0 && text.length < 100) {
+        return 'image-focus';
+      }
+      
+      // Two column layout (if we have multiple distinct sections)
+      const sections = block.querySelectorAll('h2, h3');
+      if (sections.length >= 2) {
+        return 'two-column';
+      }
+      
+      // Center layout for short content
+      if (text.length < 200 && !block.querySelector('ul, ol, pre')) {
+        return 'center';
+      }
+    }
+    
+    return 'default';
   }
 
   function next() {
@@ -504,11 +596,52 @@ if (!window.location.href.includes('notion.so') && !window.location.href.include
       e.preventDefault();
       rescanAndRender();
     }
+    if (code === 'Home') {
+      e.preventDefault();
+      e.stopPropagation();
+      renderSlide(0); // Go to first slide
+      return;
+    }
+    if (code === 'End') {
+      e.preventDefault();
+      e.stopPropagation();
+      renderSlide(slides.length - 1); // Go to last slide
+      return;
+    }
     if (code === 'Tab') {
       e.preventDefault();
       e.stopPropagation();
       toggleNavigation();
       return;
+    }
+    // Professional features shortcuts
+    if (code === 'KeyT' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      cycleTheme();
+      return;
+    }
+    if (code === 'KeyN' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      togglePresenterNotes();
+      return;
+    }
+    if (code === 'KeyF' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleFullscreen();
+      return;
+    }
+    // Number keys for direct slide navigation
+    if (code.startsWith('Digit') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const digit = parseInt(code.replace('Digit', ''));
+      if (digit >= 1 && digit <= 9 && digit <= slides.length) {
+        e.preventDefault();
+        e.stopPropagation();
+        goToSlide(digit - 1);
+        return;
+      }
     }
   }
 
@@ -594,7 +727,214 @@ if (!window.location.href.includes('notion.so') && !window.location.href.include
       slides = [collectTopLevelBlocks(root)];
     }
     idx = Math.min(idx, slides.length - 1);
+    updateNavigationPanel();
+    updateSlideIndicators();
     renderSlide(idx);
+  }
+
+  // Professional presentation features
+  function createPresentationTimer() {
+    const overlay = document.getElementById(OVERLAY_ID);
+    if (!overlay) return;
+
+    const timer = document.createElement('div');
+    timer.className = 'np-timer';
+    timer.id = 'np-timer';
+    timer.textContent = '00:00';
+    overlay.appendChild(timer);
+
+    startTimer();
+  }
+
+  function startTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    
+    timerInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - presentationStartTime) / 1000);
+      const minutes = Math.floor(elapsed / 60);
+      const seconds = elapsed % 60;
+      
+      const timer = document.getElementById('np-timer');
+      if (timer) {
+        timer.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      }
+    }, 1000);
+  }
+
+  function stopTimer() {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
+    }
+  }
+
+  function createSlideIndicators() {
+    const overlay = document.getElementById(OVERLAY_ID);
+    if (!overlay) return;
+
+    const indicators = document.createElement('div');
+    indicators.className = 'np-slide-indicators';
+    indicators.id = 'np-slide-indicators';
+    overlay.appendChild(indicators);
+
+    updateSlideIndicators();
+  }
+
+  function updateSlideIndicators() {
+    const indicators = document.getElementById('np-slide-indicators');
+    if (!indicators) return;
+
+    indicators.innerHTML = '';
+    
+    slides.forEach((_, index) => {
+      const indicator = document.createElement('div');
+      indicator.className = 'np-slide-indicator';
+      if (index === idx) {
+        indicator.classList.add('np-indicator-active');
+      }
+      
+      indicator.addEventListener('click', () => {
+        goToSlide(index);
+      });
+      
+      indicators.appendChild(indicator);
+    });
+  }
+
+  function createControlsPanel() {
+    const overlay = document.getElementById(OVERLAY_ID);
+    if (!overlay) return;
+
+    const controlsPanel = document.createElement('div');
+    controlsPanel.className = 'np-controls-panel';
+    controlsPanel.id = 'np-controls-panel';
+
+    // Theme toggle
+    const themeBtn = document.createElement('button');
+    themeBtn.className = 'np-control-btn';
+    themeBtn.textContent = '🎨 Theme';
+    themeBtn.addEventListener('click', cycleTheme);
+    controlsPanel.appendChild(themeBtn);
+
+    // Presenter notes toggle
+    const notesBtn = document.createElement('button');
+    notesBtn.className = 'np-control-btn';
+    notesBtn.textContent = '📝 Notes';
+    notesBtn.addEventListener('click', togglePresenterNotes);
+    controlsPanel.appendChild(notesBtn);
+
+    // Fullscreen toggle
+    const fullscreenBtn = document.createElement('button');
+    fullscreenBtn.className = 'np-control-btn';
+    fullscreenBtn.textContent = '⛶ Fullscreen';
+    fullscreenBtn.addEventListener('click', toggleFullscreen);
+    controlsPanel.appendChild(fullscreenBtn);
+
+    overlay.appendChild(controlsPanel);
+
+    // Show controls on mouse move, hide after 3 seconds
+    let controlsTimeout: NodeJS.Timeout;
+    overlay.addEventListener('mousemove', () => {
+      controlsPanel.classList.add('np-controls-visible');
+      clearTimeout(controlsTimeout);
+      controlsTimeout = setTimeout(() => {
+        controlsPanel.classList.remove('np-controls-visible');
+      }, 3000);
+    });
+  }
+
+  function cycleTheme() {
+    const overlay = document.getElementById(OVERLAY_ID);
+    if (!overlay) return;
+
+    const themes = ['default', 'dark', 'minimal'];
+    const currentIndex = themes.indexOf(currentTheme);
+    const nextIndex = (currentIndex + 1) % themes.length;
+    currentTheme = themes[nextIndex];
+
+    // Remove all theme classes
+    themes.forEach(theme => {
+      overlay.classList.remove(`np-theme-${theme}`);
+    });
+
+    // Add new theme class
+    if (currentTheme !== 'default') {
+      overlay.classList.add(`np-theme-${currentTheme}`);
+    }
+  }
+
+  function togglePresenterNotes() {
+    presenterNotesVisible = !presenterNotesVisible;
+    const notes = document.getElementById('np-presenter-notes');
+    
+    if (presenterNotesVisible) {
+      if (notes) {
+        notes.classList.add('np-notes-visible');
+      } else {
+        createPresenterNotes();
+      }
+    } else {
+      if (notes) {
+        notes.classList.remove('np-notes-visible');
+      }
+    }
+  }
+
+  function createPresenterNotes() {
+    const overlay = document.getElementById(OVERLAY_ID);
+    if (!overlay) return;
+
+    const notes = document.createElement('div');
+    notes.className = 'np-presenter-notes np-notes-visible';
+    notes.id = 'np-presenter-notes';
+    
+    updatePresenterNotes();
+    overlay.appendChild(notes);
+  }
+
+  function updatePresenterNotes() {
+    const notes = document.getElementById('np-presenter-notes');
+    if (!notes) return;
+
+    let notesContent = '';
+    
+    // Try to extract notes from comments or specific elements
+    if (slides[idx]) {
+      for (const block of slides[idx]) {
+        const comments = block.querySelectorAll('[title*="comment"], [aria-label*="comment"]');
+        comments.forEach(comment => {
+          notesContent += comment.textContent + '\n';
+        });
+      }
+    }
+
+    if (!notesContent) {
+      notesContent = `Slide ${idx + 1} of ${slides.length}\n\nNo presenter notes found for this slide.`;
+      
+      // Add some helpful tips
+      if (idx === 0) {
+        notesContent += '\n\nTip: This is the title slide. Introduce yourself and the topic.';
+      } else {
+        notesContent += '\n\nTip: Use arrow keys to navigate, Tab to show/hide navigation panel.';
+      }
+    }
+
+    notes.textContent = notesContent;
+  }
+
+  function toggleFullscreen() {
+    const overlay = document.getElementById(OVERLAY_ID);
+    if (!overlay) return;
+
+    if (!document.fullscreenElement) {
+      overlay.requestFullscreen().then(() => {
+        overlay.classList.add('np-fullscreen');
+      });
+    } else {
+      document.exitFullscreen().then(() => {
+        overlay.classList.remove('np-fullscreen');
+      });
+    }
   }
 })();
 

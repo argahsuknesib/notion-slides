@@ -1,16 +1,36 @@
 # Notion Slides
 
-A Chrome extension that transforms your Notion pages into presentation slides.
+A professional Chrome extension that transforms your Notion pages into beautiful presentation slides with advanced features.
 
-## Features
+## ✨ Features
 
-- Convert any Notion page into a fullscreen slide presentation
-- Navigate through slides using arrow keys or click navigation
-- Title slide with document heading and topic
-- Slide navigation panel on the right side
-- Notion-style design and icons
+### Core Functionality
+- **🎯 One-click conversion** of any Notion page into a fullscreen slide presentation
+- **🎨 Professional design** with glassmorphism effects and smooth animations
+- **📱 Responsive layouts** that automatically adapt to content type
 
-## Installation
+### Navigation & Controls
+- **⌨️ Comprehensive keyboard shortcuts** for seamless presentation control
+- **🖱️ Mouse navigation** with click-to-advance functionality
+- **📋 Interactive slide panel** with slide thumbnails and quick navigation
+- **🎯 Slide indicators** at the bottom for visual progress tracking
+
+### Professional Features
+- **⏱️ Built-in presentation timer** to track presentation duration
+- **🎨 Multiple themes** (Default, Dark, Minimal) with live switching
+- **📝 Presenter notes** overlay for speaker guidance
+- **⛶ Fullscreen mode** for distraction-free presenting
+- **📊 Progress bar** showing presentation completion
+- **🔢 Slide counter** with current/total display
+
+### Visual Enhancements
+- **✨ Smooth slide transitions** with entrance animations
+- **🎯 Content-aware layouts** (center, two-column, image-focus)
+- **📸 Enhanced image styling** with automatic focus detection
+- **💻 Beautiful code blocks** with syntax highlighting
+- **💬 Styled blockquotes** with visual emphasis
+
+## 🚀 Installation
 
 1. Clone this repository
 2. Install dependencies: `npm install`
@@ -29,10 +49,74 @@ A Chrome extension that transforms your Notion pages into presentation slides.
 
 ## Navigation
 
-- **Arrow Keys**: Navigate between slides
-- **Escape**: Exit presentation mode
-- **Click Navigation**: Use the left/right arrow buttons
-- **Slide Panel**: Click on any slide in the right panel to jump to it
+### Keyboard Shortcuts
+
+**Starting Presentation:**
+- `Option+Shift+P` (Mac) / `Alt+Shift+P` (Windows/Linux) - Start presentation mode
+
+**Slide Navigation:**
+- `→` `Space` `Page Down` - Next slide
+- `←` `Page Up` - Previous slide
+- `Home` - Jump to first slide
+- `End` - Jump to last slide
+- `1-9` - Jump directly to slide number
+
+**Presentation Controls:**
+- `Escape` - Exit presentation mode
+- `Tab` - Toggle slide navigation panel
+- `R` - Refresh/rescan slides (if content changed)
+
+**Professional Features:**
+- `T` - Cycle through themes (Default → Dark → Minimal)
+- `N` - Toggle presenter notes overlay
+- `F` - Toggle fullscreen mode
+
+### Mouse Navigation
+
+**Click Controls:**
+- **Click anywhere on slide** - Advance to next slide
+- **Navigation panel items** - Jump to specific slide
+- **Slide indicators** (dots at bottom) - Jump to specific slide
+- **Hover top-center** - Reveal presentation controls
+
+### Visual Indicators & Professional Features
+
+- **⏱️ Presentation timer** in top-left corner tracks elapsed time
+- **📊 Progress bar** at bottom showing presentation progress
+- **🔢 Slide counter** in bottom-left corner (current/total)
+- **📋 Navigation panel** on right with slide thumbnails and titles
+- **🎯 Slide indicators** at bottom-center for quick navigation
+- **📝 Presenter notes** overlay (press `N` to toggle)
+- **🎨 Theme options** - Default, Dark, and Minimal themes
+- **⛶ Fullscreen mode** for distraction-free presenting
+
+## 🎨 Professional Features
+
+### Smart Slide Layouts
+The extension automatically detects content type and applies appropriate layouts:
+
+- **📄 Default Layout**: Standard text and mixed content
+- **🎯 Center Layout**: Short content pieces, perfect for titles or key points
+- **📸 Image-Focus Layout**: Highlights images with minimal text
+- **📊 Two-Column Layout**: Automatically detects multi-section content
+
+### Theme Options
+Switch between three professionally designed themes:
+
+- **🌟 Default Theme**: Clean light theme with glassmorphism effects
+- **🌙 Dark Theme**: Professional dark mode for low-light presentations
+- **⚪ Minimal Theme**: Clean, distraction-free design
+
+### Presentation Timer & Analytics
+- **⏱️ Live timer** shows elapsed presentation time
+- **📊 Progress tracking** with visual progress bar
+- **🎯 Slide position** indicators for audience orientation
+
+### Presenter Tools
+- **📝 Presenter notes** overlay with helpful tips
+- **🔍 Navigation shortcuts** for quick slide jumping
+- **⛶ Fullscreen mode** with professional controls
+- **🎛️ Live controls** that appear on mouse movement
 
 ## How Slides Are Created
 
