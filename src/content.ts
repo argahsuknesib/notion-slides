@@ -91,8 +91,8 @@ if (!window.location.href.includes('notion.so') && !window.location.href.include
     testButton.textContent = '🎯 Start Presentation';
     testButton.style.cssText = `
       position: fixed;
-      top: 20px;
-      left: 20px;
+      bottom: 20px;
+      right: 20px;
       z-index: 9999;
       background: #2383e2;
       color: white;
